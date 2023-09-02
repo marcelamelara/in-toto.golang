@@ -1,9 +1,11 @@
 package v1
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common"
+	provPb "github.com/in-toto/attestation/go/predicates/provenance/v1"
+	ita "github.com/in-toto/attestation/go/v1"
 )
 
 const (
@@ -11,20 +13,19 @@ const (
 	PredicateSLSAProvenance = "https://slsa.dev/provenance/v1"
 )
 
-// ProvenancePredicate is the provenance predicate definition.
-type ProvenancePredicate struct {
-	// The BuildDefinition describes all of the inputs to the build. The
-	// accuracy and completeness are implied by runDetails.builder.id.
-	//
-	// It SHOULD contain all the information necessary and sufficient to
-	// initialize the build and begin execution.
-	BuildDefinition ProvenanceBuildDefinition `json:"buildDefinition"`
+func Validate(p *provPb.Provenance) error {
 
-	// Details specific to this particular execution of the build.
-	RunDetails ProvenanceRunDetails `json:"runDetails"`
+	if p.GetBuildDefinition() == nil {
+		return fmt.Errorf("The buildDefinition field is required")
+	}
+
+	if p.GetRunDetails() == nil {
+		return fmt.Errorf("The runDetails field is required")
+	}
+	
+	return nil
 }
 
-// ProvenanceBuildDefinition describes the inputs to the build.
 type ProvenanceBuildDefinition struct {
 	// Identifies the template for how to perform the build and interpret the
 	// parameters and dependencies.
@@ -61,7 +62,20 @@ type ProvenanceBuildDefinition struct {
 	// script fetches and executes “example.com/foo.sh”, which in turn fetches
 	// “example.com/bar.tar.gz”, then both “foo.sh” and “bar.tar.gz” SHOULD be
 	// listed here.
-	ResolvedDependencies []ResourceDescriptor `json:"resolvedDependencies,omitempty"`
+	ResolvedDependencies []*ita.ResourceDescriptor `json:"resolvedDependencies,omitempty"`
+}
+
+// ProvenancePredicate is the provenance predicate definition.
+type ProvenancePredicate struct {
+	// The BuildDefinition describes all of the inputs to the build. The
+	// accuracy and completeness are implied by runDetails.builder.id.
+	//
+	// It SHOULD contain all the information necessary and sufficient to
+	// initialize the build and begin execution.
+	BuildDefinition ProvenanceBuildDefinition `json:"buildDefinition"`
+
+	// Details specific to this particular execution of the build.
+	RunDetails ProvenanceRunDetails `json:"runDetails"`
 }
 
 // ProvenanceRunDetails includes details specific to a particular execution of a
@@ -86,39 +100,7 @@ type ProvenanceRunDetails struct {
 	// In most cases, this SHOULD NOT contain all intermediate files generated
 	// during the build. Instead, this SHOULD only contain files that are
 	// likely to be useful later and that cannot be easily reproduced.
-	Byproducts []ResourceDescriptor `json:"byproducts,omitempty"`
-}
-
-// ResourceDescriptor describes a particular software artifact or resource
-// (mutable or immutable).
-// See https://github.com/in-toto/attestation/blob/main/spec/v1.0/resource_descriptor.md
-type ResourceDescriptor struct {
-	// A URI used to identify the resource or artifact globally. This field is
-	// REQUIRED unless either digest or content is set.
-	URI string `json:"uri,omitempty"`
-
-	// A set of cryptographic digests of the contents of the resource or
-	// artifact. This field is REQUIRED unless either uri or content is set.
-	Digest common.DigestSet `json:"digest,omitempty"`
-
-	// TMachine-readable identifier for distinguishing between descriptors.
-	Name string `json:"name,omitempty"`
-
-	// The location of the described resource or artifact, if different from the
-	// uri.
-	DownloadLocation string `json:"downloadLocation,omitempty"`
-
-	// The MIME Type (i.e., media type) of the described resource or artifact.
-	MediaType string `json:"mediaType,omitempty"`
-
-	// The contents of the resource or artifact. This field is REQUIRED unless
-	// either uri or digest is set.
-	Content []byte `json:"content,omitempty"`
-
-	// This field MAY be used to provide additional information or metadata
-	// about the resource or artifact that may be useful to the consumer when
-	// evaluating the attestation against a policy.
-	Annotations map[string]interface{} `json:"annotations,omitempty"`
+	Byproducts []*ita.ResourceDescriptor `json:"byproducts,omitempty"`
 }
 
 // Builder represents the transitive closure of all the entities that are, by
@@ -133,7 +115,7 @@ type Builder struct {
 	// Dependencies used by the orchestrator that are not run within the
 	// workload and that do not affect the build, but might affect the
 	// provenance generation or security guarantees.
-	BuilderDependencies []ResourceDescriptor `json:"builderDependencies,omitempty"`
+	BuilderDependencies []*ita.ResourceDescriptor `json:"builderDependencies,omitempty"`
 }
 
 type BuildMetadata struct {

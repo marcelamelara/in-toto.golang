@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common"
+	ita "github.com/in-toto/attestation/go/v1"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,19 +36,24 @@ func TestDecodeProvenancePredicate(t *testing.T) {
 }
 `
 	var testTime = time.Unix(1597826280, 0)
+
+	rd1 := &ita.ResourceDescriptor{
+		Uri: "git+https://github.com/curl/curl-docker@master",
+		Digest: map[string]string{
+			"sha1": "d6525c840a62b398424a78d792f457477135d0cf",
+		},
+	}
+	
+	rd2 := &ita.ResourceDescriptor{
+		Uri: "github_hosted_vm:ubuntu-18.04:20210123.1",
+	}
+	
 	var want = ProvenancePredicate{
 		BuildDefinition: ProvenanceBuildDefinition{
 			BuildType: "https://github.com/Attestations/GitHubActionsWorkflow@v1",
-			ResolvedDependencies: []ResourceDescriptor{
-				{
-					URI: "git+https://github.com/curl/curl-docker@master",
-					Digest: common.DigestSet{
-						"sha1": "d6525c840a62b398424a78d792f457477135d0cf",
-					},
-				},
-				{
-					URI: "github_hosted_vm:ubuntu-18.04:20210123.1",
-				},
+			ResolvedDependencies: []*ita.ResourceDescriptor{
+				rd1,
+				rd2,
 			},
 		},
 		RunDetails: ProvenanceRunDetails{
@@ -77,6 +82,18 @@ func TestDecodeProvenancePredicate(t *testing.T) {
 
 func TestEncodeProvenancePredicate(t *testing.T) {
 	var testTime = time.Unix(1597826280, 0).In(time.UTC)
+
+	rd1 := &ita.ResourceDescriptor{
+		Uri: "git+https://github.com/curl/curl-docker@master",
+		Digest: map[string]string{
+			"sha1": "d6525c840a62b398424a78d792f457477135d0cf",
+		},
+	}
+
+	rd2 := &ita.ResourceDescriptor{
+		Uri: "github_hosted_vm:ubuntu-18.04:20210123.1",
+	}
+	
 	var p = ProvenancePredicate{
 		BuildDefinition: ProvenanceBuildDefinition{
 			BuildType: "https://github.com/Attestations/GitHubActionsWorkflow@v1",
@@ -87,19 +104,9 @@ func TestEncodeProvenancePredicate(t *testing.T) {
 			InternalParameters: map[string]string{
 				"GITHUB_RUNNER": "github_hosted_vm:ubuntu-18.04:20210123.1",
 			},
-			ResolvedDependencies: []ResourceDescriptor{
-				{
-					URI: "git+https://github.com/curl/curl-docker@master",
-					Digest: common.DigestSet{
-						"sha1": "d6525c840a62b398424a78d792f457477135d0cf",
-					},
-				},
-				{
-					URI: "github_hosted_vm:ubuntu-18.04:20210123.1",
-				},
-				{
-					URI: "git+https://github.com/curl/",
-				},
+			ResolvedDependencies: []*ita.ResourceDescriptor{
+				rd1,
+				rd2,
 			},
 		},
 		RunDetails: ProvenanceRunDetails{
@@ -136,7 +143,7 @@ func TestMetadataNoTime(t *testing.T) {
 		assert.Equal(t, want, string(b), "Wrong JSON produced")
 	})
 
-	t.Run("Unmashal", func(t *testing.T) {
+	t.Run("Unmarshal", func(t *testing.T) {
 		err := json.Unmarshal(b, &got)
 		assert.Nil(t, err, "Error during JSON unmarshal")
 		assert.Equal(t, md, got, "Wrong struct after JSON unmarshal")
